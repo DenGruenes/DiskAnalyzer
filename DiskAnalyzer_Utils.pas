@@ -7,7 +7,7 @@ uses
   Winapi.Windows,
   Winapi.ShlObj,
   Vcl.ImgList,
-  Vcl.Graphics;
+  Vcl.Graphics, Winapi.ShellAPI;
 
 type
   TSizeFormat = (sfBytes, sfKB, sfMB, sfGB, sfTB, sfAuto);
@@ -99,11 +99,11 @@ end;
 
 class procedure TDiskUtils.LoadSystemIcons(AImageList: TCustomImageList);
 const
-  IconIds: array[0..4] of TSIID = (
+  IconIds: array[0..4] of SHSTOCKICONID = (
     SIID_FOLDER,
     SIID_FOLDEROPEN,
-    SIID_MEDIA_PLAY,
-    SIID_MEDIA_STOP,
+    $77, // SIID_MEDIA_PLAY,
+    $78, // SIID_MEDIA_STOP,
     SIID_DELETE
   );
 var
