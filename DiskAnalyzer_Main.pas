@@ -6,8 +6,8 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls, Vcl.StdCtrls,
   Vcl.ExtCtrls, Vcl.Buttons, Vcl.ToolWin, System.ImageList, Vcl.ImgList,
-  DiskAnalyzer_Models, DiskAnalyzer_Scanner, DiskAnalyzer_Utils, System.Generics.Collections,
-  Vcl.FileCtrl;
+  DiskAnalyzer_Models, DiskAnalyzer_Scanner, DiskAnalyzer_Utils,
+  System.Generics.Collections, Vcl.FileCtrl;
 
 type
   TMainForm = class(TForm)
@@ -44,12 +44,14 @@ type
     FScannerThread: TDiskScannerThread;
     FRootNode: TDirectoryNode;
     FNodeMap: TDictionary<Pointer, TDirectoryNode>;
-    
+
+    // VERBESSERT: Neue Events für Live-Updates
     procedure OnScanProgress(Sender: TObject; const APath: string; AFileCount: Integer);
     procedure OnScanComplete(Sender: TObject; ANode: TDirectoryNode);
     procedure OnScanError(Sender: TObject);
-    
-    procedure PopulateTree(ATreeNode: TTreeNode; ADirNode: TDirectoryNode);
+    procedure OnDirectoryAdded(Sender: TObject; ANode: TDirectoryNode; AParentNode: TDirectoryNode);
+
+    function GetTreeNodeForDirectoryNode(ADirNode: TDirectoryNode): TTreeNode;
     procedure UpdateNodeInfo(ADirNode: TDirectoryNode);
     procedure StopScanning;
   public
@@ -74,10 +76,10 @@ end;
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
   StopScanning;
-  
+
   if Assigned(FRootNode) then
     FRootNode.Free;
-  
+
   FNodeMap.Free;
 end;
 
@@ -102,33 +104,35 @@ begin
     ShowMessage('Bitte wählen Sie einen Pfad!');
     Exit;
   end;
-  
+
   if not DirectoryExists(edtPath.Text) then
   begin
     ShowMessage('Verzeichnis nicht gefunden!');
     Exit;
   end;
-  
+
   StopScanning;
-  
+
   // Leere TreeView
   TreeView1.Items.Clear;
   FNodeMap.Clear;
   MemoInfo.Clear;
-  
+
   // Erstelle und starte Scanner-Thread
   FScannerThread := TDiskScannerThread.Create(edtPath.Text);
   FScannerThread.OnScanProgress := OnScanProgress;
   FScannerThread.OnScanComplete := OnScanComplete;
   FScannerThread.OnError := OnScanError;
-  
+  FScannerThread.OnDirectoryAdded := OnDirectoryAdded;  // VERBESSERT: Live-Updates
+
   ProgressBar1.Position := 0;
   lblStatus.Caption := 'Scanne Verzeichnis...';
+  lblTotalSize.Caption := '0 B';
   btnScan.Enabled := False;
   btnStop.Enabled := True;
   btnBrowse.Enabled := False;
   edtPath.Enabled := False;
-  
+
   FScannerThread.Resume;
 end;
 
@@ -156,7 +160,7 @@ begin
     FScannerThread.Free;
     FScannerThread := nil;
   end;
-  
+
   btnScan.Enabled := True;
   btnStop.Enabled := False;
   btnBrowse.Enabled := True;
@@ -169,27 +173,74 @@ begin
   ProgressBar1.Position := (AFileCount mod 100);
 end;
 
+// VERBESSERT: Neuer Event-Handler für Live-TreeView-Updates
+procedure TMainForm.OnDirectoryAdded(Sender: TObject; ANode: TDirectoryNode; AParentNode: TDirectoryNode);
+var
+  ParentTreeNode: TTreeNode;
+  NewTreeNode: TTreeNode;
+begin
+  // Finde den TreeNode für den Parent
+  ParentTreeNode := GetTreeNodeForDirectoryNode(AParentNode);
+
+  if ParentTreeNode = nil then
+    Exit;
+
+  // Erstelle neuen TreeNode für das Sub-Verzeichnis
+  NewTreeNode := TreeView1.Items.AddChild(ParentTreeNode,
+    Format('%s (%s, %d Dateien)',
+      [ANode.Name,
+       TDiskUtils.FormatFileSize(ANode.TotalSize),
+       ANode.FileCount]));
+
+  NewTreeNode.ImageIndex := 1;
+  NewTreeNode.SelectedIndex := 1;
+  FNodeMap.Add(Pointer(NewTreeNode), ANode);
+
+  // Auto-Expand Parent
+  ParentTreeNode.Expand(False);
+end;
+
+function TMainForm.GetTreeNodeForDirectoryNode(ADirNode: TDirectoryNode): TTreeNode;
+var
+  Node: TTreeNode;
+  i: Integer;
+begin
+  Result := nil;
+
+  // Suche in der Hauptebene
+  for i := 0 to TreeView1.Items.Count - 1 do
+  begin
+    Node := TreeView1.Items[i];
+    if FNodeMap.ContainsKey(Pointer(Node)) then
+    begin
+      if FNodeMap[Pointer(Node)] = ADirNode then
+      begin
+        Result := Node;
+        Exit;
+      end;
+    end;
+  end;
+end;
+
 procedure TMainForm.OnScanComplete(Sender: TObject; ANode: TDirectoryNode);
 var
   RootNode: TTreeNode;
 begin
   FRootNode := ANode;
-  
-  // Root-Node in TreeView
-  RootNode := TreeView1.Items.Add(nil, Format('%s (%s)', [ANode.Name, TDiskUtils.FormatFileSize(ANode.TotalSize)]));
-  RootNode.ImageIndex := 0;
-  RootNode.SelectedIndex := 0;
-  FNodeMap.Add(Pointer(RootNode), ANode);
-  
-  // Rekursiv alle Child-Nodes hinzufügen
-  PopulateTree(RootNode, ANode);
-  
-  RootNode.Expand(True); // Alle Nodes ausklappen
-  
+
+  // Root-Node in TreeView (falls nicht schon vorhanden)
+  if TreeView1.Items.Count = 0 then
+  begin
+    RootNode := TreeView1.Items.Add(nil, Format('%s (%s)', [ANode.Name, TDiskUtils.FormatFileSize(ANode.TotalSize)]));
+    RootNode.ImageIndex := 0;
+    RootNode.SelectedIndex := 0;
+    FNodeMap.Add(Pointer(RootNode), ANode);
+  end;
+
   lblStatus.Caption := Format('Scan abgeschlossen. %d Dateien gescannt', [FScannerThread.TotalFilesScanned]);
   lblTotalSize.Caption := TDiskUtils.FormatFileSize(ANode.TotalSize);
   ProgressBar1.Position := 100;
-  
+
   btnScan.Enabled := True;
   btnStop.Enabled := False;
   btnBrowse.Enabled := True;
@@ -200,34 +251,11 @@ procedure TMainForm.OnScanError(Sender: TObject);
 begin
   ShowMessage('Fehler beim Scannen: ' + FScannerThread.ErrorMessage);
   lblStatus.Caption := 'Fehler: ' + FScannerThread.ErrorMessage;
-  
+
   btnScan.Enabled := True;
   btnStop.Enabled := False;
   btnBrowse.Enabled := True;
   edtPath.Enabled := True;
-end;
-
-procedure TMainForm.PopulateTree(ATreeNode: TTreeNode; ADirNode: TDirectoryNode);
-var
-  SubDir: TDirectoryNode;
-  ChildNode: TTreeNode;
-begin
-  for SubDir in ADirNode.SubDirs do
-  begin
-    ChildNode := TreeView1.Items.AddChild(ATreeNode, 
-      Format('%s (%s, %d Dateien)', 
-        [SubDir.Name, 
-         TDiskUtils.FormatFileSize(SubDir.TotalSize),
-         SubDir.FileCount]));
-    
-    ChildNode.ImageIndex := 1;
-    ChildNode.SelectedIndex := 1;
-    FNodeMap.Add(Pointer(ChildNode), SubDir);
-    
-    // Rekursiv für Unterverzeichnisse
-    if SubDir.SubDirs.Count > 0 then
-      PopulateTree(ChildNode, SubDir);
-  end;
 end;
 
 procedure TMainForm.TreeView1Change(Sender: TObject; Node: TTreeNode);
@@ -236,7 +264,7 @@ var
 begin
   if Node = nil then
     Exit;
-    
+
   if FNodeMap.TryGetValue(Pointer(Node), DirNode) then
   begin
     UpdateNodeInfo(DirNode);
@@ -260,7 +288,7 @@ begin
   MemoInfo.Lines.Add('Dateianzahl: ' + IntToStr(ADirNode.FileCount));
   MemoInfo.Lines.Add('Unterverzeichnisse: ' + IntToStr(ADirNode.SubDirs.Count));
   MemoInfo.Lines.Add('');
-  
+
   if FRootNode <> nil then
   begin
     TotalPercentage := TDiskUtils.GetPercentage(ADirNode.TotalSize, FRootNode.TotalSize);
@@ -269,3 +297,4 @@ begin
 end;
 
 end.
+
