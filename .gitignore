@@ -1,0 +1,66 @@
+# Delphi Compiler Output
+__pycache__/
+*.o
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+
+# Delphi IDE
+.idea/
+.vscode/
+*.dcu
+*.dcp
+*.so
+*.a
+*.dylib
+*.dll
+*.exe
+*.res
+*.rsm
+*.lfm.bak
+*.lps
+*.cbk
+
+# Build Output
+Release/
+Debug/
+Bin/
+Lib/
+output/
+build/
+
+# Backup files
+*.bak
+*~
+*.swp
+*.swo
+*#*
+
+# IDE specific files
+*.local
+*.identcache
+*.projdata
+*.tvsconfig
+*.tds
+*.ats
+*.map
+*.dbg
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# vcl specific
+*.vlb
+
+# Third-party
+vcl.log

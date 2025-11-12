@@ -1,0 +1,303 @@
+═══════════════════════════════════════════════════════════════════════════════
+DiskAnalyzer - TreeSize Alternative für Delphi XE 11+
+═══════════════════════════════════════════════════════════════════════════════
+
+FUNKTIONALITÄT
+──────────────
+✓ Multithreaded Festplattenanalyse (non-blocking UI)
+✓ Baumstruktur mit Sortierung nach Dateigröße
+✓ Echtzeit-Progress-Anzeige
+✓ Detaillierte Verzeichnisinformationen
+✓ Prozentuale Anzeige zum Gesamtvolumen
+✓ Formatierte Größenangaben (B, KB, MB, GB, TB)
+
+
+ARCHITEKTUR
+───────────
+DiskAnalyzer_Models.pas      → Datenmodelle (TDirectoryNode, TFileInfo)
+DiskAnalyzer_Scanner.pas     → Threading-Engine (TDiskScannerThread)
+DiskAnalyzer_Utils.pas       → Utility-Funktionen (Formatierung, Berechnung)
+DiskAnalyzer_Main.pas        → Hauptformular mit UI
+DiskAnalyzer_Main.dfm        → Formular-Definition
+DiskAnalyzer.dpr             → Projekt-Datei
+
+
+PERFORMANCE-OPTIMIERUNGEN
+──────────────────────────
+1. Thread-basiert: Keine Blockierung der UI während des Scans
+2. Sortierung erst nach Scan: SortBySize() wird einmal am Ende aufgerufen
+3. TDictionary für schnelle Node-Lookups
+4. Rekursive Verarbeitung mit Depth-Limit möglich
+5. Exception-Handling für "Access Denied" Fehler
+
+
+ERWEITERUNGSMÖGLICHKEITEN MIT SPRING4D
+──────────────────────────────────────
+Das System lässt sich elegant mit Spring4D erweitern:
+
+1. DEPENDENCY INJECTION
+─────────────────────
+  uses Spring.Container;
+  
+  type
+    IFileScanner = interface
+      procedure Scan(const APath: string);
+    end;
+    
+  var
+    Container: TContainer;
+  begin
+    Container := TContainer.Create;
+    Container.RegisterType<TDiskScannerThread>.Implements<IFileScanner>;
+    // ...
+  end;
+
+2. COLLECTIONS AUS SPRING4D
+──────────────────────────
+  Anstelle von Standard TList<T>:
+  
+  uses Spring.Collections;
+  
+  FSubDirs := TCollections.CreateList<TDirectoryNode>;
+  
+  Vorteile:
+  - IList<T> Interface
+  - Bessere Funktionalität (.Where(), .Select(), etc.)
+  - Lazy Evaluation
+
+
+3. LAZY LOADING MIT SPRING4D
+───────────────────────────
+  Für sehr große Verzeichnisbäume:
+  
+  uses Spring, Spring.Collections;
+  
+  property SubDirs: IList<TDirectoryNode> read FSubDirs;
+  
+  // Lazy-Unterverzeichnisse nur on-demand laden
+
+
+INTEGRATION MIT ANDEREN PACKAGES
+─────────────────────────────────
+
+1. JVCL / JEDI COMPONENTS
+   ─────────────────────────
+   - Verwende TJvFileListBox/TJvDirectoryListBox für Pfad-Selection
+   - TJvBrowseForFolderDialog statt SelectDirectory()
+   
+   Beispiel:
+   ────────
+   uses Jcl.Win32.Windows, JvBrowseForFolderDialog;
+   
+   procedure TMainForm.btnBrowseClick(Sender: TObject);
+   var
+     Dialog: TJvBrowseForFolderDialog;
+   begin
+     Dialog := TJvBrowseForFolderDialog.Create(nil);
+     try
+       Dialog.Title := 'Verzeichnis wählen';
+       if Dialog.Execute then
+         edtPath.Text := Dialog.Directory;
+     finally
+       Dialog.Free;
+     end;
+   end;
+
+2. FASTREPORT INTEGRATION
+   ────────────────────────
+   Für die Erzeugung von Disk-Reports:
+   
+   uses frxClass, frxDBSet;
+   
+   procedure TMainForm.GenerateReport;
+   var
+     Report: TfrxReport;
+     Memo: TfrxMemoView;
+   begin
+     Report := TfrxReport.Create(nil);
+     try
+       // Create report with DiskAnalyzer data
+       Memo := TfrxMemoView.Create(Report.Pages[0]);
+       Memo.Text := Format('Disk Analysis Report: %s', [FRootNode.FullPath]);
+       Report.ShowReport;
+     finally
+       Report.Free;
+     end;
+   end;
+
+3. TIMERWEITERUNG (ZEITGESTEUERT)
+   ──────────────────────────────
+   Für periodische Disk-Überwachung mit Timer:
+   
+   procedure TMainForm.SetupPeriodicScan;
+   var
+     Timer: TTimer;
+   begin
+     Timer := TTimer.Create(Self);
+     Timer.Interval := 3600000; // 1 Stunde
+     Timer.OnTimer := procedure(Sender: TObject)
+       begin
+         if not FScannerThread.Busy then
+           btnScanClick(nil);
+       end;
+     Timer.Enabled := True;
+   end;
+
+
+FIREBIRD INTEGRATION MIT FIREDAC
+─────────────────────────────────
+
+Falls Sie Scan-Ergebnisse in Firebird speichern möchten:
+
+uses FireDAC.Comp.Client, FireDAC.Phys.FB;
+
+type
+  TDiskAnalysisRepository = class
+  private
+    FConnection: TFDConnection;
+  public
+    constructor Create(AConnection: TFDConnection);
+    procedure SaveAnalysis(ANode: TDirectoryNode);
+  end;
+
+implementation
+
+constructor TDiskAnalysisRepository.Create(AConnection: TFDConnection);
+begin
+  FConnection := AConnection;
+end;
+
+procedure TDiskAnalysisRepository.SaveAnalysis(ANode: TDirectoryNode);
+var
+  Query: TFDQuery;
+begin
+  Query := TFDQuery.Create(nil);
+  try
+    Query.Connection := FConnection;
+    Query.SQL.Text := 'INSERT INTO DISK_ANALYSIS ' +
+      '(PATH, TOTAL_SIZE, FILE_COUNT, SCAN_DATE) VALUES ' +
+      '(:PATH, :SIZE, :COUNT, :SCANDATE)';
+    
+    Query.ParamByName('PATH').AsString := ANode.FullPath;
+    Query.ParamByName('SIZE').AsInt64 := ANode.TotalSize;
+    Query.ParamByName('COUNT').AsInteger := ANode.FileCount;
+    Query.ParamByName('SCANDATE').AsDateTime := Now;
+    
+    Query.ExecSQL;
+  finally
+    Query.Free;
+  end;
+end;
+
+Firebird SQL:
+─────────────
+CREATE TABLE DISK_ANALYSIS (
+  ID INTEGER PRIMARY KEY DEFAULT GEN_ID(GEN_ID, 1),
+  PATH VARCHAR(500) NOT NULL,
+  TOTAL_SIZE BIGINT NOT NULL,
+  FILE_COUNT INTEGER NOT NULL,
+  SCAN_DATE TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IDX_DISK_PATH ON DISK_ANALYSIS(PATH);
+
+
+MOBILE-ERWEITERUNG (ANDROID MIT DELPHI)
+────────────────────────────────────────
+
+Für Multi-Plattform-Projekt (Desktop + Android):
+
+Verwende Conditional Compilation:
+
+{$IFDEF MSWINDOWS}
+  // Desktop-spezifischer Code
+  uses Winapi.Windows, Winapi.ShlObj;
+{$ENDIF}
+
+{$IFDEF ANDROID}
+  // Android-spezifischer Code
+  uses Androidapi.JNI.JavaTypes, Androidapi.JNI.Os;
+  
+  function GetExternalStorageDirectory: string;
+  begin
+    Result := JStringToString(TJEnvironment.JavaClass.getExternalStorageDirectory.getAbsolutePath);
+  end;
+{$ENDIF}
+
+Android-Berechtigungen (AndroidManifest.xml):
+──────────────────────────────────────────────
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+
+DEBUGGING & LOGGING
+───────────────────
+
+Für erweiteres Logging mit Spring4D:
+
+uses Spring.Services, Spring.Logging;
+
+type
+  TDiskScannerThread = class(TThread)
+  private
+    FLogger: ILogger;
+  public
+    constructor Create(const ARootPath: string);
+      var
+        LogService: ILoggerService;
+      begin
+        FLogger := GlobalLoggerService.GetLogger(ClassName);
+        FLogger.Info('Scanner started for: ' + ARootPath);
+      end;
+    
+    procedure ScanDirectory(ANode: TDirectoryNode; ADepth: Integer = 0);
+      begin
+        FLogger.Debug(Format('Scanning: %s (Depth: %d)', [ANode.FullPath, ADepth]));
+        // ...
+      end;
+  end;
+
+
+PERFORMANCE-TIPPS
+─────────────────
+
+1. ThreadPool für sehr große Verzeichnisbäume:
+   procedure TDiskScannerThread.ScanDirectoryParallel(ANode: TDirectoryNode);
+   begin
+     TParallel.For(0, ANode.SubDirs.Count - 1,
+       procedure(I: Integer)
+       begin
+         ScanDirectory(ANode.SubDirs[I]);
+       end);
+   end;
+
+2. Memory-Caching für häufig gelesene Verzeichnisse:
+   FCache: TDictionary<string, TDirectoryNode>;
+
+3. Incremental Scanning für schnellere Wiederholunscan:
+   Speichern Sie Timestamps und vergleichen Sie diese
+
+
+TESTING MIT DUNIT
+─────────────────
+
+uses TestFramework;
+
+type
+  TTestDiskAnalyzer = class(TTestCase)
+  published
+    procedure TestFileFormatting;
+    procedure TestCalculations;
+    procedure TestThreading;
+  end;
+
+implementation
+
+procedure TTestDiskAnalyzer.TestFileFormatting;
+begin
+  CheckEquals('1.00 MB', TDiskUtils.FormatFileSize(1024 * 1024));
+  CheckEquals('1.00 GB', TDiskUtils.FormatFileSize(1024 * 1024 * 1024));
+end;
+
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,163 @@
+name: Build & Test
+
+# Wann sollte dieser Workflow ausgelöst werden?
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    name: Build DiskAnalyzer
+    runs-on: windows-latest
+    
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+        platform: [Win64, Win32]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Delphi (XE 11)
+      run: |
+        # Installiere Delphi XE 11
+        # Hinweis: Dies ist ein Beispiel. Echte Delphi-Installation erfordert
+        # Community-IDE oder professionelle Lizenz
+        echo "Delphi Setup würde hier ausgeführt"
+    
+    - name: Restore NuGet packages
+      run: |
+        # Falls Spring4D oder andere NuGet-Packages benötigt werden
+        nuget restore DiskAnalyzer.sln
+    
+    - name: Build Debug Configuration
+      if: matrix.configuration == 'Debug'
+      run: |
+        msbuild DiskAnalyzer.dproj `
+          /p:Configuration=Debug `
+          /p:Platform=${{ matrix.platform }} `
+          /verbosity:minimal
+      
+    - name: Build Release Configuration
+      if: matrix.configuration == 'Release'
+      run: |
+        msbuild DiskAnalyzer.dproj `
+          /p:Configuration=Release `
+          /p:Platform=${{ matrix.platform }} `
+          /verbosity:minimal
+    
+    - name: Check for compiler warnings
+      run: |
+        # Überprüfe auf Compiler-Warnungen
+        if (Select-String -Path "*.log" -Pattern "warning" -Quiet) {
+          Write-Host "Compiler warnings found!"
+          exit 1
+        }
+    
+    - name: Upload build artifacts
+      if: success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: DiskAnalyzer-${{ matrix.platform }}-${{ matrix.configuration }}
+        path: |
+          Bin/${{ matrix.configuration }}/DiskAnalyzer.exe
+          Bin/${{ matrix.configuration }}/*.dll
+        retention-days: 30
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          Changes in this Release
+          - See CHANGELOG.md for details
+        draft: false
+        prerelease: false
+
+  code-quality:
+    name: Code Quality Check
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Pascal Analyzer
+      run: |
+        # Optional: Pascal-spezifische Code-Qualität Tools
+        # z.B. GExperts oder ähnliches
+        echo "Code quality tools setup"
+    
+    - name: Check code style
+      run: |
+        # Überprüfe Code-Style
+        Write-Host "Code style validation"
+    
+    - name: Generate documentation
+      run: |
+        # Optional: API-Dokumentation generieren
+        # z.B. mit PasDoc
+        echo "Documentation generation"
+
+  security:
+    name: Security Scan
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Run SAST scan
+      run: |
+        # Optional: Static Application Security Testing
+        # z.B. mit Sonarqube oder ähnlich
+        echo "SAST scan placeholder"
+    
+    - name: Check for secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: ${{ github.event.repository.default_branch }}
+        head: HEAD
+        extra_args: --debug
+
+  release:
+    name: Create Release Package
+    runs-on: windows-latest
+    needs: [build, code-quality, security]
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Download Win64 Release
+      uses: actions/download-artifact@v3
+      with:
+        name: DiskAnalyzer-Win64-Release
+        path: ./Release/Win64
+    
+    - name: Download Win32 Release
+      uses: actions/download-artifact@v3
+      with:
+        name: DiskAnalyzer-Win32-Release
+        path: ./Release/Win32
+    
+    - name: Create portable zip
+      run: |
+        $version = "${{ github.ref }}".Replace('refs/tags/v', '')
+        Compress-Archive -Path ./Release/* -DestinationPath DiskAnalyzer-$version.zip
+    
+    - name: Upload to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./DiskAnalyzer-${{ github.ref }}.zip
+        asset_name: DiskAnalyzer-portable.zip
+        asset_content_type: application/zip

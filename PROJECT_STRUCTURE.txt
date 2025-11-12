@@ -1,0 +1,45 @@
+DiskAnalyzer/
+│
+├── README.md                           # Hauptdokumentation
+├── CONTRIBUTING.md                     # Beitrags-Richtlinien
+├── LICENSE                             # MIT Lizenz
+├── .gitignore                          # Git-Ignore Konfiguration
+│
+├── 📁 Source/                          # Quelldateien
+│   ├── DiskAnalyzer.dpr               # Hauptprojekt-Datei
+│   ├── DiskAnalyzer_Main.pas          # Hauptformular
+│   ├── DiskAnalyzer_Main.dfm          # Formular-Definition
+│   ├── DiskAnalyzer_Models.pas        # Datenmodelle
+│   ├── DiskAnalyzer_Scanner.pas       # Threading-Engine
+│   ├── DiskAnalyzer_Utils.pas         # Utilities
+│   ├── DiskAnalyzer_Config.pas        # Konfiguration
+│   ├── DiskAnalyzer_Reports.pas       # Reporting
+│   └── DiskAnalyzer_Examples.pas      # Code-Beispiele
+│
+├── 📁 Docs/                            # Dokumentation
+│   ├── DOCUMENTATION_DE.txt           # Detaillierte DE-Dokumentation
+│   ├── ARCHITECTURE.md                # Architektur-Übersicht
+│   ├── API.md                         # API-Dokumentation
+│   └── EXAMPLES.md                    # Praktische Beispiele
+│
+├── 📁 Builds/                          # Compilierte Binaries (ignoriert)
+│   ├── Win64/
+│   │   ├── DiskAnalyzer.exe
+│   │   └── Release/
+│   └── Win32/
+│       ├── DiskAnalyzer.exe
+│       └── Release/
+│
+├── 📁 Resources/                       # Ressourcen
+│   ├── Icons/
+│   │   ├── folder.ico
+│   │   ├── file.ico
+│   │   └── drive.ico
+│   └── Screenshots/
+│       ├── main-window.png
+│       ├── tree-view.png
+│       └── report-export.png
+│
+└── 📁 Tests/                           # Unit-Tests (geplant)
+    ├── DiskAnalyzer_Tests.dpr
+    └── Test_*.pas
