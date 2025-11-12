@@ -82,6 +82,10 @@ implementation
 
 {$R *.dfm}
 
+const
+  COLUMN_PADDING = 16;
+  COLUMN_TEXT_PADDING = 6;
+
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
   FNodeMap := TDictionary<Pointer, TDirectoryNode>.Create;
@@ -89,6 +93,7 @@ begin
   lblStatus.Caption := 'Bereit zum Scannen';
   btnStop.Enabled := False;
   FDiskCapacity := 0;
+  TDiskUtils.LoadSystemIcons(ImageList1);
   UpdateColumnLayout;
 end;
 
@@ -135,11 +140,16 @@ begin
 
   StopScanning;
 
+  if Assigned(FRootNode) then
+  begin
+    FRootNode.Free;
+    FRootNode := nil;
+  end;
+
   // Leere TreeView
   TreeView1.Items.Clear;
   FNodeMap.Clear;
   MemoInfo.Clear;
-  FRootNode := nil;
 
   FDiskCapacity := TDiskUtils.GetDriveCapacity(edtPath.Text);
 
@@ -184,26 +194,33 @@ begin
   lblStatus.Caption := 'Geleert';
   lblTotalSize.Caption := '0 B';
   ProgressBar1.Position := 0;
-  FRootNode := nil;
+  if Assigned(FRootNode) then
+  begin
+    FRootNode.Free;
+    FRootNode := nil;
+  end;
   FDiskCapacity := 0;
   InvalidateTree;
 end;
 
 procedure TMainForm.StopScanning;
+var
+  DetachedRoot: TDirectoryNode;
 begin
   if Assigned(FScannerThread) then
   begin
     FScannerThread.Terminate;
     FScannerThread.WaitFor;
+
+    DetachedRoot := FScannerThread.DetachRootNode;
     FScannerThread.Free;
     FScannerThread := nil;
-    FRootNode := nil;
-    TreeView1.Items.Clear;
-    FNodeMap.Clear;
-    MemoInfo.Clear;
-    lblTotalSize.Caption := '0 B';
-    ProgressBar1.Position := 0;
+
+    if Assigned(DetachedRoot) then
+      FRootNode := DetachedRoot;
+
     lblStatus.Caption := 'Scan gestoppt';
+    ProgressBar1.Position := 0;
   end;
 
   btnScan.Enabled := True;
@@ -224,6 +241,8 @@ procedure TMainForm.OnDirectoryAdded(Sender: TObject; ANode: TDirectoryNode; APa
 var
   ParentTreeNode: TTreeNode;
   NewTreeNode: TTreeNode;
+  TopItem: TTreeNode;
+  SelectedNode: TTreeNode;
 begin
   // Finde den TreeNode für den Parent
   ParentTreeNode := GetTreeNodeForDirectoryNode(AParentNode);
@@ -231,15 +250,27 @@ begin
   if ParentTreeNode = nil then
     Exit;
 
-  // Erstelle neuen TreeNode für das Sub-Verzeichnis
-  NewTreeNode := TreeView1.Items.AddChild(ParentTreeNode, GetDirectoryDisplayName(ANode));
+  TopItem := TreeView1.TopItem;
+  SelectedNode := TreeView1.Selected;
 
-  NewTreeNode.ImageIndex := 0;
-  NewTreeNode.SelectedIndex := 1;
-  FNodeMap.Add(Pointer(NewTreeNode), ANode);
+  TreeView1.Items.BeginUpdate;
+  try
+    // Erstelle neuen TreeNode für das Sub-Verzeichnis
+    NewTreeNode := TreeView1.Items.AddChild(ParentTreeNode, GetDirectoryDisplayName(ANode));
 
-  // Auto-Expand Parent
-  ParentTreeNode.Expand(False);
+    NewTreeNode.ImageIndex := 0;
+    NewTreeNode.SelectedIndex := 1;
+    FNodeMap.Add(Pointer(NewTreeNode), ANode);
+  finally
+    TreeView1.Items.EndUpdate;
+  end;
+
+  if Assigned(TopItem) then
+    TreeView1.TopItem := TopItem;
+
+  if Assigned(SelectedNode) then
+    TreeView1.Selected := SelectedNode;
+
   InvalidateTree;
 end;
 
@@ -403,14 +434,14 @@ begin
   ItemRect.Right := TreeView1.ClientWidth;
 
   SizeRect := ItemRect;
-  SizeRect.Left := FSizeColumnLeft;
-  SizeRect.Right := FSizeColumnLeft + FSizeColumnWidth;
+  SizeRect.Left := FSizeColumnLeft + COLUMN_TEXT_PADDING;
+  SizeRect.Right := FSizeColumnLeft + FSizeColumnWidth - COLUMN_TEXT_PADDING;
   if SizeRect.Right <= SizeRect.Left then
     Exit;
 
   UsageRect := ItemRect;
-  UsageRect.Left := FUsageColumnLeft;
-  UsageRect.Right := FUsageColumnLeft + FUsageColumnWidth;
+  UsageRect.Left := FUsageColumnLeft + COLUMN_TEXT_PADDING;
+  UsageRect.Right := FUsageColumnLeft + FUsageColumnWidth - COLUMN_TEXT_PADDING;
   if UsageRect.Right <= UsageRect.Left then
     Exit;
 
@@ -422,24 +453,24 @@ begin
     DT_SINGLELINE or DT_VCENTER or DT_END_ELLIPSIS or DT_RIGHT);
 
   // Draw usage bar
-  InflateRect(UsageRect, -4, -4);
-  if UsageRect.Right <= UsageRect.Left then
-    Exit;
-
   TreeView1.Canvas.Brush.Style := bsSolid;
   TreeView1.Canvas.Brush.Color := clBtnFace;
   TreeView1.Canvas.FillRect(UsageRect);
+
+  BarRect := UsageRect;
+  InflateRect(BarRect, -4, -4);
+  if BarRect.Right <= BarRect.Left then
+    Exit;
 
   if FDiskCapacity > 0 then
     PercentValue := TDiskUtils.GetPercentage(DirNode.TotalSize, FDiskCapacity)
   else
     PercentValue := 0;
 
-  BarRect := UsageRect;
   if PercentValue > 100 then
     PercentValue := 100;
 
-  BarWidth := Round((UsageRect.Right - UsageRect.Left) * (PercentValue / 100));
+  BarWidth := Round((BarRect.Right - BarRect.Left) * (PercentValue / 100));
   BarRect.Right := BarRect.Left + BarWidth;
 
   if PercentValue >= 90 then
@@ -457,7 +488,7 @@ begin
 
   TreeView1.Canvas.Brush.Style := bsClear;
   TreeView1.Canvas.Pen.Color := clGray;
-  TreeView1.Canvas.Rectangle(UsageRect);
+  TreeView1.Canvas.Rectangle(BarRect);
 
   PercentText := Format('%.1f%%', [PercentValue]);
   DrawText(TreeView1.Canvas.Handle, PChar(PercentText), Length(PercentText), UsageRect,
@@ -472,10 +503,18 @@ end;
 
 procedure TMainForm.UpdateColumnLayout;
 begin
-  FSizeColumnLeft := lblHeaderSize.Left;
-  FUsageColumnLeft := lblHeaderUsage.Left;
-  FSizeColumnWidth := lblHeaderSize.Width;
-  FUsageColumnWidth := lblHeaderUsage.Width;
+  FSizeColumnLeft := lblHeaderSize.Left + (COLUMN_PADDING div 2);
+  FUsageColumnLeft := lblHeaderUsage.Left + (COLUMN_PADDING div 2);
+
+  if lblHeaderSize.Width > COLUMN_PADDING then
+    FSizeColumnWidth := lblHeaderSize.Width - COLUMN_PADDING
+  else
+    FSizeColumnWidth := lblHeaderSize.Width;
+
+  if lblHeaderUsage.Width > COLUMN_PADDING then
+    FUsageColumnWidth := lblHeaderUsage.Width - COLUMN_PADDING
+  else
+    FUsageColumnWidth := lblHeaderUsage.Width;
 end;
 
 procedure TMainForm.InvalidateTree;

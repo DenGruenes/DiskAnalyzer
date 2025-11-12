@@ -38,6 +38,7 @@ type
     destructor Destroy; override;
 
     procedure ScanDirectory(ANode: TDirectoryNode; ADepth: Integer = 0);
+    function DetachRootNode: TDirectoryNode;
 
     property RootNode: TDirectoryNode read FRootNode;
     property OnScanComplete: TScanCompleteEvent read FOnScanComplete write FOnScanComplete;
@@ -199,6 +200,12 @@ procedure TDiskScannerThread.DoDirectoryAdded(ANode: TDirectoryNode; AParentNode
 begin
   if Assigned(FOnDirectoryAdded) then
     FOnDirectoryAdded(Self, ANode, AParentNode);
+end;
+
+function TDiskScannerThread.DetachRootNode: TDirectoryNode;
+begin
+  Result := FRootNode;
+  FRootNode := nil;
 end;
 
 end.
