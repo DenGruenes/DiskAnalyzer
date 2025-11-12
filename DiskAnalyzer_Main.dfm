@@ -99,56 +99,28 @@ object MainForm: TMainForm
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 2
-    object pnlTreeHeader: TPanel
+    object HeaderControl1: THeaderControl
       Left = 0
       Top = 0
       Width = 1218
       Height = 24
       Align = alTop
-      BevelOuter = bvNone
-      Color = clBtnFace
-      ParentBackground = False
-      TabOrder = 0
-      OnResize = pnlTreeHeaderResize
-      object lblHeaderUsage: TLabel
-        Left = 998
-        Top = 0
-        Width = 220
-        Height = 24
-        Align = alRight
-        AlignWithMargins = True
-        Alignment = taCenter
-        Caption = 'Auslastung'
-        Layout = tlCenter
-        Margins.Left = 16
-        Margins.Right = 8
-      end
-      object lblHeaderSize: TLabel
-        Left = 858
-        Top = 0
-        Width = 140
-        Height = 24
-        Align = alRight
-        AlignWithMargins = True
-        Alignment = taCenter
-        Caption = 'Gesamtgr'#246#223'e'
-        Layout = tlCenter
-        Margins.Left = 16
-        Margins.Right = 8
-      end
-      object lblHeaderName: TLabel
-        Left = 0
-        Top = 0
-        Width = 858
-        Height = 24
-        Align = alClient
-        AlignWithMargins = True
-        Alignment = taLeftJustify
-        Caption = 'Ordner'
-        Layout = tlCenter
-        Margins.Left = 8
-        Margins.Right = 16
-      end
+      Sections = <
+        item
+          Text = 'Ordner'
+          Width = 700
+        end
+        item
+          Text = 'Gesamtgr'#246#223'e'
+          Width = 240
+        end
+        item
+          Text = 'Auslastung'
+          Width = 220
+        end>
+      OnSectionClick = HeaderControl1SectionClick
+      OnSectionTrack = HeaderControl1SectionTrack
+      OnResize = HeaderControl1Resize
     end
     object TreeView1: TTreeView
       Left = 0
