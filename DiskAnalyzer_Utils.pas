@@ -3,7 +3,8 @@ unit DiskAnalyzer_Utils;
 interface
 
 uses
-  System.SysUtils;
+  System.SysUtils,
+  Winapi.Windows;
 
 type
   TSizeFormat = (sfBytes, sfKB, sfMB, sfGB, sfTB, sfAuto);
@@ -14,6 +15,7 @@ type
     class function GetSizeInMB(ASize: Int64): Double;
     class function GetSizeInGB(ASize: Int64): Double;
     class function GetPercentage(APart, ATotal: Int64): Double;
+    class function GetDriveCapacity(const APath: string): Int64;
   end;
 
 implementation
@@ -70,6 +72,25 @@ begin
     Result := 0
   else
     Result := (APart / ATotal) * 100;
+end;
+
+class function TDiskUtils.GetDriveCapacity(const APath: string): Int64;
+var
+  RootPath: string;
+  FreeAvailable, TotalBytes, TotalFree: Int64;
+begin
+  Result := 0;
+
+  if APath = '' then
+    Exit;
+
+  RootPath := IncludeTrailingPathDelimiter(ExtractFileDrive(ExpandFileName(APath)));
+
+  if RootPath = '' then
+    Exit;
+
+  if GetDiskFreeSpaceEx(PChar(RootPath), FreeAvailable, TotalBytes, @TotalFree) then
+    Result := TotalBytes;
 end;
 
 end.

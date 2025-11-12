@@ -3,9 +3,10 @@
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls, Vcl.StdCtrls,
-  Vcl.ExtCtrls, Vcl.Buttons, Vcl.ToolWin, System.ImageList, Vcl.ImgList,
+  Winapi.Windows, Winapi.Messages, System.SysUtils,
+  System.Variants, System.Classes, System.Types, Vcl.Graphics, Vcl.Controls,
+  Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Buttons,
+  Vcl.ToolWin, System.ImageList, Vcl.ImgList,
   DiskAnalyzer_Models, DiskAnalyzer_Scanner, DiskAnalyzer_Utils,
   System.Generics.Collections, Vcl.FileCtrl;
 
@@ -32,6 +33,10 @@ type
     Splitter1: TSplitter;
     Panel4: TPanel;
     MemoInfo: TMemo;
+    pnlTreeHeader: TPanel;
+    lblHeaderUsage: TLabel;
+    lblHeaderSize: TLabel;
+    lblHeaderName: TLabel;
     procedure btnScanClick(Sender: TObject);
     procedure btnBrowseClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -40,10 +45,19 @@ type
     procedure btnClearClick(Sender: TObject);
     procedure btnStopClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure TreeView1AdvancedCustomDrawItem(Sender: TCustomTreeView;
+      Node: TTreeNode; State: TCustomDrawState; Stage: TCustomDrawStage;
+      var PaintImages, DefaultDraw: Boolean);
+    procedure pnlTreeHeaderResize(Sender: TObject);
   private
     FScannerThread: TDiskScannerThread;
     FRootNode: TDirectoryNode;
     FNodeMap: TDictionary<Pointer, TDirectoryNode>;
+    FDiskCapacity: Int64;
+    FSizeColumnLeft: Integer;
+    FUsageColumnLeft: Integer;
+    FSizeColumnWidth: Integer;
+    FUsageColumnWidth: Integer;
 
     // VERBESSERT: Neue Events für Live-Updates
     procedure OnScanProgress(Sender: TObject; const APath: string; AFileCount: Integer);
@@ -55,6 +69,8 @@ type
     function GetDirectoryDisplayName(ADirNode: TDirectoryNode): string;
     procedure UpdateNodeInfo(ADirNode: TDirectoryNode);
     procedure StopScanning;
+    procedure UpdateColumnLayout;
+    procedure InvalidateTree;
   public
     { Public declarations }
   end;
@@ -72,6 +88,8 @@ begin
   edtPath.Text := 'C:\';
   lblStatus.Caption := 'Bereit zum Scannen';
   btnStop.Enabled := False;
+  FDiskCapacity := 0;
+  UpdateColumnLayout;
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
@@ -123,6 +141,8 @@ begin
   MemoInfo.Clear;
   FRootNode := nil;
 
+  FDiskCapacity := TDiskUtils.GetDriveCapacity(edtPath.Text);
+
   // Erstelle und starte Scanner-Thread
   FScannerThread := TDiskScannerThread.Create(edtPath.Text);
   FScannerThread.OnScanProgress := OnScanProgress;
@@ -134,9 +154,9 @@ begin
   if FRootNode <> nil then
   begin
     DisplayName := GetDirectoryDisplayName(FRootNode);
-    RootTreeNode := TreeView1.Items.Add(nil, Format('%s (%s)', [DisplayName, TDiskUtils.FormatFileSize(FRootNode.TotalSize)]));
+    RootTreeNode := TreeView1.Items.Add(nil, DisplayName);
     RootTreeNode.ImageIndex := 0;
-    RootTreeNode.SelectedIndex := 0;
+    RootTreeNode.SelectedIndex := 1;
     FNodeMap.Add(Pointer(RootTreeNode), FRootNode);
   end;
 
@@ -165,6 +185,8 @@ begin
   lblTotalSize.Caption := '0 B';
   ProgressBar1.Position := 0;
   FRootNode := nil;
+  FDiskCapacity := 0;
+  InvalidateTree;
 end;
 
 procedure TMainForm.StopScanning;
@@ -188,6 +210,7 @@ begin
   btnStop.Enabled := False;
   btnBrowse.Enabled := True;
   edtPath.Enabled := True;
+  InvalidateTree;
 end;
 
 procedure TMainForm.OnScanProgress(Sender: TObject; const APath: string; AFileCount: Integer);
@@ -209,18 +232,15 @@ begin
     Exit;
 
   // Erstelle neuen TreeNode für das Sub-Verzeichnis
-  NewTreeNode := TreeView1.Items.AddChild(ParentTreeNode,
-    Format('%s (%s, %d Dateien)',
-      [GetDirectoryDisplayName(ANode),
-       TDiskUtils.FormatFileSize(ANode.TotalSize),
-       ANode.FileCount]));
+  NewTreeNode := TreeView1.Items.AddChild(ParentTreeNode, GetDirectoryDisplayName(ANode));
 
-  NewTreeNode.ImageIndex := 1;
+  NewTreeNode.ImageIndex := 0;
   NewTreeNode.SelectedIndex := 1;
   FNodeMap.Add(Pointer(NewTreeNode), ANode);
 
   // Auto-Expand Parent
   ParentTreeNode.Expand(False);
+  InvalidateTree;
 end;
 
 function TMainForm.GetTreeNodeForDirectoryNode(ADirNode: TDirectoryNode): TTreeNode;
@@ -255,13 +275,13 @@ begin
   RootNode := GetTreeNodeForDirectoryNode(ANode);
   if RootNode = nil then
   begin
-    RootNode := TreeView1.Items.Add(nil, Format('%s (%s)', [GetDirectoryDisplayName(ANode), TDiskUtils.FormatFileSize(ANode.TotalSize)]));
+    RootNode := TreeView1.Items.Add(nil, GetDirectoryDisplayName(ANode));
     RootNode.ImageIndex := 0;
-    RootNode.SelectedIndex := 0;
+    RootNode.SelectedIndex := 1;
     FNodeMap.Add(Pointer(RootNode), ANode);
   end;
 
-  RootNode.Text := Format('%s (%s)', [GetDirectoryDisplayName(ANode), TDiskUtils.FormatFileSize(ANode.TotalSize)]);
+  RootNode.Text := GetDirectoryDisplayName(ANode);
 
   lblStatus.Caption := Format('Scan abgeschlossen. %d Dateien gescannt', [FScannerThread.TotalFilesScanned]);
   lblTotalSize.Caption := TDiskUtils.FormatFileSize(ANode.TotalSize);
@@ -271,6 +291,8 @@ begin
   btnStop.Enabled := False;
   btnBrowse.Enabled := True;
   edtPath.Enabled := True;
+
+  InvalidateTree;
 end;
 
 procedure TMainForm.OnScanError(Sender: TObject);
@@ -287,6 +309,7 @@ end;
 procedure TMainForm.TreeView1Change(Sender: TObject; Node: TTreeNode);
 var
   DirNode: TDirectoryNode;
+  DiskPercentage: Double;
 begin
   if Node = nil then
     Exit;
@@ -294,12 +317,18 @@ begin
   if FNodeMap.TryGetValue(Pointer(Node), DirNode) then
   begin
     UpdateNodeInfo(DirNode);
+    if FDiskCapacity > 0 then
+    begin
+      DiskPercentage := TDiskUtils.GetPercentage(DirNode.TotalSize, FDiskCapacity);
+      lblStatus.Caption := Format('Auslastung: %.2f%% der Festplatte', [DiskPercentage]);
+    end;
   end;
 end;
 
 procedure TMainForm.UpdateNodeInfo(ADirNode: TDirectoryNode);
 var
   TotalPercentage: Double;
+  DiskPercentage: Double;
   TotalGB: Double;
 begin
   MemoInfo.Clear;
@@ -319,6 +348,12 @@ begin
   begin
     TotalPercentage := TDiskUtils.GetPercentage(ADirNode.TotalSize, FRootNode.TotalSize);
     MemoInfo.Lines.Add(Format('Anteil am Gesamt: %.2f%%', [TotalPercentage]));
+  end;
+
+  if FDiskCapacity > 0 then
+  begin
+    DiskPercentage := TDiskUtils.GetPercentage(ADirNode.TotalSize, FDiskCapacity);
+    MemoInfo.Lines.Add(Format('Auslastung der Festplatte: %.2f%%', [DiskPercentage]));
   end;
 end;
 
@@ -344,6 +379,109 @@ begin
 
   if Result = '' then
     Result := ADirNode.FullPath;
+end;
+
+procedure TMainForm.TreeView1AdvancedCustomDrawItem(Sender: TCustomTreeView;
+  Node: TTreeNode; State: TCustomDrawState; Stage: TCustomDrawStage;
+  var PaintImages, DefaultDraw: Boolean);
+var
+  DirNode: TDirectoryNode;
+  ItemRect, SizeRect, UsageRect, BarRect: TRect;
+  SizeText, PercentText: string;
+  PercentValue: Double;
+  BarWidth: Integer;
+  UsageColor: TColor;
+begin
+  DefaultDraw := True;
+  if Stage <> cdPostPaint then
+    Exit;
+
+  if not FNodeMap.TryGetValue(Pointer(Node), DirNode) then
+    Exit;
+
+  ItemRect := Node.DisplayRect(False);
+  ItemRect.Right := TreeView1.ClientWidth;
+
+  SizeRect := ItemRect;
+  SizeRect.Left := FSizeColumnLeft;
+  SizeRect.Right := FSizeColumnLeft + FSizeColumnWidth;
+  if SizeRect.Right <= SizeRect.Left then
+    Exit;
+
+  UsageRect := ItemRect;
+  UsageRect.Left := FUsageColumnLeft;
+  UsageRect.Right := FUsageColumnLeft + FUsageColumnWidth;
+  if UsageRect.Right <= UsageRect.Left then
+    Exit;
+
+  SizeText := TDiskUtils.FormatFileSize(DirNode.TotalSize);
+
+  TreeView1.Canvas.Brush.Style := bsClear;
+  TreeView1.Canvas.Font.Color := clWindowText;
+  DrawText(TreeView1.Canvas.Handle, PChar(SizeText), Length(SizeText), SizeRect,
+    DT_SINGLELINE or DT_VCENTER or DT_END_ELLIPSIS or DT_RIGHT);
+
+  // Draw usage bar
+  InflateRect(UsageRect, -4, -4);
+  if UsageRect.Right <= UsageRect.Left then
+    Exit;
+
+  TreeView1.Canvas.Brush.Style := bsSolid;
+  TreeView1.Canvas.Brush.Color := clBtnFace;
+  TreeView1.Canvas.FillRect(UsageRect);
+
+  if FDiskCapacity > 0 then
+    PercentValue := TDiskUtils.GetPercentage(DirNode.TotalSize, FDiskCapacity)
+  else
+    PercentValue := 0;
+
+  BarRect := UsageRect;
+  if PercentValue > 100 then
+    PercentValue := 100;
+
+  BarWidth := Round((UsageRect.Right - UsageRect.Left) * (PercentValue / 100));
+  BarRect.Right := BarRect.Left + BarWidth;
+
+  if PercentValue >= 90 then
+    UsageColor := clRed
+  else if PercentValue >= 70 then
+    UsageColor := clOlive
+  else
+    UsageColor := clGreen;
+
+  if BarWidth > 0 then
+  begin
+    TreeView1.Canvas.Brush.Color := UsageColor;
+    TreeView1.Canvas.FillRect(BarRect);
+  end;
+
+  TreeView1.Canvas.Brush.Style := bsClear;
+  TreeView1.Canvas.Pen.Color := clGray;
+  TreeView1.Canvas.Rectangle(UsageRect);
+
+  PercentText := Format('%.1f%%', [PercentValue]);
+  DrawText(TreeView1.Canvas.Handle, PChar(PercentText), Length(PercentText), UsageRect,
+    DT_SINGLELINE or DT_VCENTER or DT_CENTER);
+end;
+
+procedure TMainForm.pnlTreeHeaderResize(Sender: TObject);
+begin
+  UpdateColumnLayout;
+  InvalidateTree;
+end;
+
+procedure TMainForm.UpdateColumnLayout;
+begin
+  FSizeColumnLeft := lblHeaderSize.Left;
+  FUsageColumnLeft := lblHeaderUsage.Left;
+  FSizeColumnWidth := lblHeaderSize.Width;
+  FUsageColumnWidth := lblHeaderUsage.Width;
+end;
+
+procedure TMainForm.InvalidateTree;
+begin
+  if TreeView1.HandleAllocated then
+    TreeView1.Invalidate;
 end;
 
 end.
