@@ -3,7 +3,7 @@ object MainForm: TMainForm
   Top = 0
   Caption = 'DiskAnalyzer - TreeSize Alternative'
   ClientHeight = 600
-  ClientWidth = 900
+  ClientWidth = 1518
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -15,35 +15,44 @@ object MainForm: TMainForm
   OnDestroy = FormDestroy
   TextHeight = 13
   object Splitter1: TSplitter
-    Left = 600
-    Top = 49
+    Left = 1218
+    Top = 63
     Width = 5
-    Height = 551
-    Cursor = crHSplit
+    Height = 537
     Align = alRight
   end
   object ToolBar1: TToolBar
     Left = 0
     Top = 0
-    Width = 900
-    Height = 22
-    EdgeBorders = []
+    Width = 1518
+    Height = 36
+    AutoSize = True
+    ButtonHeight = 36
+    ButtonWidth = 72
     Images = ImageList1
+    ShowCaptions = True
     TabOrder = 0
     object btnScan: TToolButton
+      Left = 0
+      Top = 0
       Caption = 'Scan starten'
       ImageIndex = 0
       OnClick = btnScanClick
     end
     object btnStop: TToolButton
+      Left = 72
+      Top = 0
       Caption = 'Scan stoppen'
       ImageIndex = 1
       OnClick = btnStopClick
     end
     object ToolButton3: TToolButton
-      Width = 8
+      Left = 144
+      Top = 0
     end
     object btnClear: TToolButton
+      Left = 216
+      Top = 0
       Caption = 'Leeren'
       ImageIndex = 2
       OnClick = btnClearClick
@@ -51,8 +60,8 @@ object MainForm: TMainForm
   end
   object Panel2: TPanel
     Left = 0
-    Top = 22
-    Width = 900
+    Top = 36
+    Width = 1518
     Height = 27
     Align = alTop
     BevelOuter = bvNone
@@ -60,7 +69,7 @@ object MainForm: TMainForm
     object Label1: TLabel
       Left = 8
       Top = 6
-      Width = 23
+      Width = 26
       Height = 13
       Caption = 'Pfad:'
     end
@@ -84,28 +93,27 @@ object MainForm: TMainForm
   end
   object Panel1: TPanel
     Left = 0
-    Top = 49
-    Width = 600
-    Height = 551
+    Top = 63
+    Width = 1218
+    Height = 537
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 2
     object TreeView1: TTreeView
       Left = 0
       Top = 0
-      Width = 600
-      Height = 521
+      Width = 1218
+      Height = 507
       Align = alClient
-      Indent = 19
       Images = ImageList1
-      PopupMenu = nil
+      Indent = 19
       TabOrder = 0
       OnChange = TreeView1Change
     end
     object Panel3: TPanel
       Left = 0
-      Top = 521
-      Width = 600
+      Top = 507
+      Width = 1218
       Height = 30
       Align = alBottom
       BevelOuter = bvNone
@@ -113,48 +121,46 @@ object MainForm: TMainForm
       object Label2: TLabel
         Left = 8
         Top = 7
-        Width = 26
+        Width = 24
         Height = 13
         Caption = 'Info:'
       end
       object lblStatus: TLabel
         Left = 60
         Top = 7
-        Width = 92
+        Width = 94
         Height = 13
         Caption = 'Bereit zum Scannen'
       end
       object Label3: TLabel
         Left = 400
         Top = 7
-        Width = 56
+        Width = 50
         Height = 13
         Caption = 'Gesamtgr:'
       end
       object lblTotalSize: TLabel
         Left = 462
         Top = 7
-        Width = 18
+        Width = 15
         Height = 13
         Caption = '0 B'
       end
       object ProgressBar1: TProgressBar
-        Left = 8
-        Top = -2
-        Width = 584
+        Left = 0
+        Top = 0
+        Width = 1218
         Height = 5
         Align = alTop
-        Min = 0
-        Max = 100
         TabOrder = 0
       end
     end
   end
   object Panel4: TPanel
-    Left = 605
-    Top = 49
+    Left = 1223
+    Top = 63
     Width = 295
-    Height = 551
+    Height = 537
     Align = alRight
     BevelOuter = bvNone
     TabOrder = 3
@@ -162,7 +168,7 @@ object MainForm: TMainForm
       Left = 0
       Top = 0
       Width = 295
-      Height = 551
+      Height = 537
       Align = alClient
       BorderStyle = bsNone
       ReadOnly = True
@@ -172,8 +178,6 @@ object MainForm: TMainForm
   object ImageList1: TImageList
     ColorDepth = cd32Bit
     DrawingStyle = dsFocus
-    Height = 16
-    Width = 16
     Left = 872
     Top = 112
   end

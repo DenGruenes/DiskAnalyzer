@@ -1,9 +1,9 @@
-unit DiskAnalyzer_Models;
+﻿unit DiskAnalyzer_Models;
 
 interface
 
 uses
-  System.Generics.Collections, System.SysUtils, Winapi.Windows;
+  System.Generics.Collections, System.Generics.Defaults, System.SysUtils, Winapi.Windows;
 
 type
   TFileInfo = record
@@ -87,7 +87,7 @@ begin
     TComparer<TDirectoryNode>.Construct(
       function(const L, R: TDirectoryNode): Integer
       begin
-        Result := CompareValue(R.TotalSize, L.TotalSize);
+        Result := R.TotalSize + L.TotalSize;
       end
     )
   );

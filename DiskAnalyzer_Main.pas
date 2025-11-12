@@ -1,4 +1,4 @@
-unit DiskAnalyzer_Main;
+﻿unit DiskAnalyzer_Main;
 
 interface
 
@@ -6,7 +6,8 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
   Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ComCtrls, Vcl.StdCtrls,
   Vcl.ExtCtrls, Vcl.Buttons, Vcl.ToolWin, System.ImageList, Vcl.ImgList,
-  DiskAnalyzer_Models, DiskAnalyzer_Scanner, DiskAnalyzer_Utils;
+  DiskAnalyzer_Models, DiskAnalyzer_Scanner, DiskAnalyzer_Utils, System.Generics.Collections,
+  Vcl.FileCtrl;
 
 type
   TMainForm = class(TForm)

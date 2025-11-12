@@ -1,4 +1,4 @@
-unit DiskAnalyzer_Scanner;
+﻿unit DiskAnalyzer_Scanner;
 
 interface
 
@@ -132,15 +132,15 @@ begin
           // Datei - Größe addieren
           FileSize := SearchRec.Size;
           ANode.TotalSize := ANode.TotalSize + FileSize;
-          Inc(ANode.FileCount);
+          ANode.FileCount := ANode.FileCount + 1;
         end;
         
       until (FindNext(SearchRec) <> 0) or Terminated;
-      FindClose(SearchRec);
+      System.SysUtils.FindClose(SearchRec);
     end;
-    
+
     // Addiere Größen von Unterverzeichnissen
-    var SubNode: TDirectoryNode;
+//    var SubNode: TDirectoryNode;
     for SubNode in ANode.SubDirs do
     begin
       ANode.TotalSize := ANode.TotalSize + SubNode.TotalSize;
