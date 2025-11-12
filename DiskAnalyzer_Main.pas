@@ -125,6 +125,17 @@ begin
   FScannerThread.OnError := OnScanError;
   FScannerThread.OnDirectoryAdded := OnDirectoryAdded;  // VERBESSERT: Live-Updates
 
+  // VERBESSERT: Root-Node sofort zum TreeView hinzufügen
+  if Assigned(FRootNode) then
+    FRootNode.Free;
+  FRootNode := FScannerThread.RootNode;
+
+  var RootTreeNode := TreeView1.Items.Add(nil, Format('%s (wird gescannt...)',
+    [ExtractFileName(ExcludeTrailingPathDelimiter(edtPath.Text))]));
+  RootTreeNode.ImageIndex := 0;
+  RootTreeNode.SelectedIndex := 0;
+  FNodeMap.Add(Pointer(RootTreeNode), FRootNode);
+
   ProgressBar1.Position := 0;
   lblStatus.Caption := 'Scanne Verzeichnis...';
   lblTotalSize.Caption := '0 B';
@@ -178,6 +189,8 @@ procedure TMainForm.OnDirectoryAdded(Sender: TObject; ANode: TDirectoryNode; APa
 var
   ParentTreeNode: TTreeNode;
   NewTreeNode: TTreeNode;
+  CurrentNode: TDirectoryNode;
+  CurrentTreeNode: TTreeNode;
 begin
   // Finde den TreeNode für den Parent
   ParentTreeNode := GetTreeNodeForDirectoryNode(AParentNode);
@@ -196,8 +209,25 @@ begin
   NewTreeNode.SelectedIndex := 1;
   FNodeMap.Add(Pointer(NewTreeNode), ANode);
 
-  // Auto-Expand Parent
-  ParentTreeNode.Expand(False);
+  // Auto-Expand Parent (nur bis zu 2 Ebenen)
+  if ParentTreeNode.Level < 2 then
+    ParentTreeNode.Expand(False);
+
+  // VERBESSERT: Aktualisiere alle Parent-Nodes (aufwärts bis zur Root)
+  CurrentNode := AParentNode;
+  CurrentTreeNode := ParentTreeNode;
+  while Assigned(CurrentTreeNode) do
+  begin
+    CurrentTreeNode.Text := Format('%s (%s, %d Dateien)',
+      [CurrentNode.Name,
+       TDiskUtils.FormatFileSize(CurrentNode.TotalSize),
+       CurrentNode.FileCount]);
+
+    // Gehe zum Parent
+    CurrentTreeNode := CurrentTreeNode.Parent;
+    if Assigned(CurrentNode) then
+      CurrentNode := CurrentNode.Parent;
+  end;
 end;
 
 function TMainForm.GetTreeNodeForDirectoryNode(ADirNode: TDirectoryNode): TTreeNode;
@@ -224,17 +254,18 @@ end;
 
 procedure TMainForm.OnScanComplete(Sender: TObject; ANode: TDirectoryNode);
 var
-  RootNode: TTreeNode;
+  RootTreeNode: TTreeNode;
 begin
   FRootNode := ANode;
 
-  // Root-Node in TreeView (falls nicht schon vorhanden)
-  if TreeView1.Items.Count = 0 then
+  // VERBESSERT: Root-Node aktualisieren (wurde bereits bei Scan-Start hinzugefügt)
+  RootTreeNode := GetTreeNodeForDirectoryNode(ANode);
+  if Assigned(RootTreeNode) then
   begin
-    RootNode := TreeView1.Items.Add(nil, Format('%s (%s)', [ANode.Name, TDiskUtils.FormatFileSize(ANode.TotalSize)]));
-    RootNode.ImageIndex := 0;
-    RootNode.SelectedIndex := 0;
-    FNodeMap.Add(Pointer(RootNode), ANode);
+    RootTreeNode.Text := Format('%s (%s, %d Dateien)',
+      [ANode.Name,
+       TDiskUtils.FormatFileSize(ANode.TotalSize),
+       ANode.FileCount]);
   end;
 
   lblStatus.Caption := Format('Scan abgeschlossen. %d Dateien gescannt', [FScannerThread.TotalFilesScanned]);

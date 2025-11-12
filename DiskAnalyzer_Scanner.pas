@@ -138,16 +138,20 @@ begin
           SubNode := TDirectoryNode.Create(SearchRec.Name, IncludeTrailingPathDelimiter(SubDirPath), ANode);
           ANode.AddSubDir(SubNode);
 
-          // VERBESSERT: Rufe Event auf, damit TreeView live aktualisiert wird
+          // Scanne das Unterverzeichnis zuerst
+          ScanDirectory(SubNode, ADepth + 1);
+
+          // VERBESSERT: Addiere Größen SOFORT nach dem Scannen
+          ANode.TotalSize := ANode.TotalSize + SubNode.TotalSize;
+          ANode.FileCount := ANode.FileCount + SubNode.FileCount;
+
+          // VERBESSERT: Rufe Event auf NACH dem Scannen, damit Größen korrekt sind
           Synchronize(
             procedure
             begin
               DoDirectoryAdded(SubNode, ANode);
             end
           );
-
-          // Scanne das Unterverzeichnis
-          ScanDirectory(SubNode, ADepth + 1);
         end
         else
         begin
@@ -159,14 +163,6 @@ begin
 
       until (FindNext(SearchRec) <> 0) or Terminated;
       System.SysUtils.FindClose(SearchRec);
-    end;
-
-    // Addiere Größen von Unterverzeichnissen
-//    var SubNode: TDirectoryNode;
-    for SubNode in ANode.SubDirs do
-    begin
-      ANode.TotalSize := ANode.TotalSize + SubNode.TotalSize;
-      ANode.FileCount := ANode.FileCount + SubNode.FileCount;
     end;
 
   except
