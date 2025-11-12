@@ -36,14 +36,14 @@ object MainForm: TMainForm
       Left = 0
       Top = 0
       Caption = 'Scan starten'
-      ImageIndex = 0
+      ImageIndex = 2
       OnClick = btnScanClick
     end
     object btnStop: TToolButton
       Left = 72
       Top = 0
       Caption = 'Scan stoppen'
-      ImageIndex = 1
+      ImageIndex = 3
       OnClick = btnStopClick
     end
     object ToolButton3: TToolButton
@@ -54,7 +54,7 @@ object MainForm: TMainForm
       Left = 216
       Top = 0
       Caption = 'Leeren'
-      ImageIndex = 2
+      ImageIndex = 4
       OnClick = btnClearClick
     end
   end
@@ -99,15 +99,70 @@ object MainForm: TMainForm
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 2
-    object TreeView1: TTreeView
+    object pnlTreeHeader: TPanel
       Left = 0
       Top = 0
       Width = 1218
-      Height = 507
+      Height = 24
+      Align = alTop
+      BevelOuter = bvNone
+      Color = clBtnFace
+      ParentBackground = False
+      TabOrder = 0
+      OnResize = pnlTreeHeaderResize
+      object lblHeaderUsage: TLabel
+        Left = 998
+        Top = 0
+        Width = 220
+        Height = 24
+        Align = alRight
+        AlignWithMargins = True
+        Alignment = taCenter
+        Caption = 'Auslastung'
+        Layout = tlCenter
+        Margins.Left = 16
+        Margins.Right = 8
+      end
+      object lblHeaderSize: TLabel
+        Left = 858
+        Top = 0
+        Width = 140
+        Height = 24
+        Align = alRight
+        AlignWithMargins = True
+        Alignment = taCenter
+        Caption = 'Gesamtgr'#246#223'e'
+        Layout = tlCenter
+        Margins.Left = 16
+        Margins.Right = 8
+      end
+      object lblHeaderName: TLabel
+        Left = 0
+        Top = 0
+        Width = 858
+        Height = 24
+        Align = alClient
+        AlignWithMargins = True
+        Alignment = taLeftJustify
+        Caption = 'Ordner'
+        Layout = tlCenter
+        Margins.Left = 8
+        Margins.Right = 16
+      end
+    end
+    object TreeView1: TTreeView
+      Left = 0
+      Top = 24
+      Width = 1218
+      Height = 483
       Align = alClient
       Images = ImageList1
       Indent = 19
-      TabOrder = 0
+      ParentDoubleBuffered = False
+      DoubleBuffered = True
+      ReadOnly = True
+      TabOrder = 1
+      OnAdvancedCustomDrawItem = TreeView1AdvancedCustomDrawItem
       OnChange = TreeView1Change
     end
     object Panel3: TPanel
@@ -117,7 +172,7 @@ object MainForm: TMainForm
       Height = 30
       Align = alBottom
       BevelOuter = bvNone
-      TabOrder = 1
+      TabOrder = 2
       object Label2: TLabel
         Left = 8
         Top = 7
@@ -177,7 +232,10 @@ object MainForm: TMainForm
   end
   object ImageList1: TImageList
     ColorDepth = cd32Bit
-    DrawingStyle = dsFocus
+    DrawingStyle = dsTransparent
+    Masked = True
+    Width = 16
+    Height = 16
     Left = 872
     Top = 112
   end
